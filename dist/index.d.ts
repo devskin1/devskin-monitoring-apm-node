@@ -1,22 +1,3 @@
-/**
- * DevSkin APM Agent for Node.js
- *
- * @example
- * ```typescript
- * import { init, startAgent } from '@devskin/agent';
- *
- * const agent = init({
- *   serverUrl: 'http://localhost:3000',
- *   apiKey: 'your-api-key',
- *   serviceName: 'my-service',
- *   serviceVersion: '1.0.0',
- *   environment: 'production',
- *   sampleRate: 1.0,
- * });
- *
- * await startAgent();
- * ```
- */
 export * from './types';
 export * from './agent';
 export * from './span';

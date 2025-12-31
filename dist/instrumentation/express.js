@@ -4,25 +4,18 @@ exports.expressMiddleware = expressMiddleware;
 exports.expressErrorHandler = expressErrorHandler;
 const span_1 = require("../span");
 const context_1 = require("../utils/context");
-/**
- * Express middleware for automatic transaction creation
- */
 function expressMiddleware(agent) {
     const config = agent.getConfig();
     return (req, res, next) => {
-        // Check if we should sample this request
         if (!agent.shouldSample()) {
             return next();
         }
-        // Extract trace context from headers
         const incomingTraceId = req.headers['x-trace-id'];
         const incomingSpanId = req.headers['x-span-id'];
-        // Create transaction
         const transactionName = req.route?.path
             ? `${req.method} ${req.route.path}`
             : `${req.method} ${req.path}`;
         const transaction = new span_1.TransactionBuilder(transactionName, 'http.request', config.serviceName, config.serviceVersion, config.environment, true, agent);
-        // If there's an incoming trace ID, use it
         if (incomingTraceId) {
             transaction.getTransaction().trace_id = incomingTraceId;
             if (incomingSpanId) {
@@ -39,15 +32,11 @@ function expressMiddleware(agent) {
             'http.user_agent': req.get('user-agent'),
             'net.peer.ip': req.ip,
         });
-        // Add query params and body (be careful with sensitive data)
         if (Object.keys(req.query).length > 0) {
             transaction.setAttribute('http.query', JSON.stringify(req.query));
         }
-        // Store transaction in request object
         req.devskinTransaction = transaction;
-        // Run the rest of the request handling in context
         context_1.Context.run({ transaction: transaction.getTransaction() }, () => {
-            // Wrap res.send, res.json, res.end to capture response
             const originalSend = res.send;
             const originalJson = res.json;
             const originalEnd = res.end;
@@ -73,7 +62,6 @@ function expressMiddleware(agent) {
                 endTransaction();
                 return originalEnd.apply(this, args);
             };
-            // Handle errors
             res.on('error', (error) => {
                 transaction.recordError(error);
                 endTransaction();
@@ -82,9 +70,6 @@ function expressMiddleware(agent) {
         });
     };
 }
-/**
- * Express error handler middleware
- */
 function expressErrorHandler(agent) {
     return (err, req, res, next) => {
         const transaction = req.devskinTransaction;
@@ -93,7 +78,6 @@ function expressErrorHandler(agent) {
             transaction.setResult('error');
             transaction.end();
         }
-        // Report error to agent
         const config = agent.getConfig();
         agent.reportError({
             timestamp: new Date(),

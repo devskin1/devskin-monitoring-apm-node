@@ -40,26 +40,20 @@ exports.startAgent = startAgent;
 exports.stopAgent = stopAgent;
 const api_client_1 = require("./api-client");
 const id_generator_1 = require("./utils/id-generator");
-/**
- * DevSkin APM Agent
- */
 class Agent {
-    config;
-    apiClient;
-    spanBuffer = [];
-    transactionBuffer = [];
-    logBuffer = [];
-    errorBuffer = [];
-    flushTimer;
-    initialized = false;
     constructor(config) {
+        this.spanBuffer = [];
+        this.transactionBuffer = [];
+        this.logBuffer = [];
+        this.errorBuffer = [];
+        this.initialized = false;
         this.config = {
             enabled: true,
             sampleRate: 1.0,
             instrumentHttp: true,
             instrumentExpress: true,
             batchSize: 100,
-            flushInterval: 10000, // 10 seconds
+            flushInterval: 10000,
             debug: false,
             ...config,
         };
@@ -72,9 +66,6 @@ class Agent {
         }
         this.apiClient = new api_client_1.ApiClient(this.config.serverUrl, this.config.apiKey, this.config.serviceName, this.config.debug);
     }
-    /**
-     * Start the agent
-     */
     async start() {
         if (!this.config.enabled)
             return;
@@ -84,13 +75,10 @@ class Agent {
         if (this.config.debug) {
             console.log('[DevSkin Agent] Starting agent for service:', this.config.serviceName);
         }
-        // Start flush timer
         this.flushTimer = setInterval(() => {
             this.flush();
         }, this.config.flushInterval);
-        // Send service metadata for discovery
         await this.sendServiceMetadata();
-        // Initialize instrumentation
         if (this.config.instrumentHttp) {
             await this.initHttpInstrumentation();
         }
@@ -98,9 +86,6 @@ class Agent {
             console.log('[DevSkin Agent] Agent started successfully');
         }
     }
-    /**
-     * Stop the agent
-     */
     async stop() {
         if (!this.config.enabled)
             return;
@@ -116,9 +101,6 @@ class Agent {
             console.log('[DevSkin Agent] Agent stopped');
         }
     }
-    /**
-     * Initialize HTTP instrumentation
-     */
     async initHttpInstrumentation() {
         try {
             const { instrumentHttp } = await Promise.resolve().then(() => __importStar(require('./instrumentation/http')));
@@ -128,9 +110,6 @@ class Agent {
             console.error('[DevSkin Agent] Failed to initialize HTTP instrumentation:', error.message);
         }
     }
-    /**
-     * Send service metadata
-     */
     async sendServiceMetadata() {
         try {
             await this.apiClient.sendServiceMetadata({
@@ -151,9 +130,6 @@ class Agent {
             }
         }
     }
-    /**
-     * Report a span
-     */
     reportSpan(span) {
         if (!this.config.enabled)
             return;
@@ -162,9 +138,6 @@ class Agent {
             this.flush();
         }
     }
-    /**
-     * Report a transaction
-     */
     reportTransaction(transaction) {
         if (!this.config.enabled)
             return;
@@ -173,9 +146,6 @@ class Agent {
             this.flush();
         }
     }
-    /**
-     * Report a log entry
-     */
     reportLog(log) {
         if (!this.config.enabled)
             return;
@@ -184,9 +154,6 @@ class Agent {
             this.flush();
         }
     }
-    /**
-     * Report an error
-     */
     reportError(error) {
         if (!this.config.enabled)
             return;
@@ -195,9 +162,6 @@ class Agent {
             this.flush();
         }
     }
-    /**
-     * Flush all buffered data
-     */
     async flush() {
         if (!this.config.enabled)
             return;
@@ -223,27 +187,15 @@ class Agent {
             }
         }
     }
-    /**
-     * Get agent configuration
-     */
     getConfig() {
         return this.config;
     }
-    /**
-     * Check if sampling is enabled for this request
-     */
     shouldSample() {
         return (0, id_generator_1.shouldSample)(this.config.sampleRate || 1.0);
     }
 }
 exports.Agent = Agent;
-/**
- * Global agent instance
- */
 let globalAgent = null;
-/**
- * Initialize the global agent
- */
 function init(config) {
     if (globalAgent) {
         console.warn('[DevSkin Agent] Agent already initialized');
@@ -252,24 +204,15 @@ function init(config) {
     globalAgent = new Agent(config);
     return globalAgent;
 }
-/**
- * Get the global agent instance
- */
 function getAgent() {
     return globalAgent;
 }
-/**
- * Start the global agent
- */
 async function startAgent() {
     if (!globalAgent) {
         throw new Error('[DevSkin Agent] Agent not initialized. Call init() first.');
     }
     await globalAgent.start();
 }
-/**
- * Stop the global agent
- */
 async function stopAgent() {
     if (globalAgent) {
         await globalAgent.stop();

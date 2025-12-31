@@ -1,23 +1,4 @@
 "use strict";
-/**
- * DevSkin APM Agent for Node.js
- *
- * @example
- * ```typescript
- * import { init, startAgent } from '@devskin/agent';
- *
- * const agent = init({
- *   serverUrl: 'https://api-monitoring.devskin.com',
- *   apiKey: 'your-api-key',
- *   serviceName: 'my-service',
- *   serviceVersion: '1.0.0',
- *   environment: 'production',
- *   sampleRate: 1.0,
- * });
- *
- * await startAgent();
- * ```
- */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -43,7 +24,6 @@ __exportStar(require("./utils/id-generator"), exports);
 var express_1 = require("./instrumentation/express");
 Object.defineProperty(exports, "expressMiddleware", { enumerable: true, get: function () { return express_1.expressMiddleware; } });
 Object.defineProperty(exports, "expressErrorHandler", { enumerable: true, get: function () { return express_1.expressErrorHandler; } });
-// Re-export commonly used functions
 var agent_1 = require("./agent");
 Object.defineProperty(exports, "init", { enumerable: true, get: function () { return agent_1.init; } });
 Object.defineProperty(exports, "getAgent", { enumerable: true, get: function () { return agent_1.getAgent; } });

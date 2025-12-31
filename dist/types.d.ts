@@ -1,35 +1,17 @@
-/**
- * Configuration for DevSkin APM Agent
- */
 export interface AgentConfig {
-    /** DevSkin backend URL */
     serverUrl: string;
-    /** API key for authentication */
     apiKey: string;
-    /** Service name */
     serviceName: string;
-    /** Service version */
     serviceVersion?: string;
-    /** Environment (production, staging, development) */
     environment?: string;
-    /** Enable/disable the agent */
     enabled?: boolean;
-    /** Sample rate (0.0 to 1.0) */
     sampleRate?: number;
-    /** Enable HTTP instrumentation */
     instrumentHttp?: boolean;
-    /** Enable Express instrumentation */
     instrumentExpress?: boolean;
-    /** Batch size for sending data */
     batchSize?: number;
-    /** Flush interval in milliseconds */
     flushInterval?: number;
-    /** Enable debug logging */
     debug?: boolean;
 }
-/**
- * Span kind
- */
 export declare enum SpanKind {
     SERVER = "server",
     CLIENT = "client",
@@ -37,16 +19,10 @@ export declare enum SpanKind {
     PRODUCER = "producer",
     CONSUMER = "consumer"
 }
-/**
- * Span status
- */
 export declare enum SpanStatus {
     OK = "ok",
     ERROR = "error"
 }
-/**
- * Span data structure
- */
 export interface Span {
     span_id: string;
     trace_id: string;
@@ -64,26 +40,17 @@ export interface Span {
     service_version?: string;
     environment?: string;
 }
-/**
- * Span event
- */
 export interface SpanEvent {
     timestamp: Date;
     name: string;
     attributes?: Record<string, any>;
 }
-/**
- * Transaction (root span)
- */
 export interface Transaction extends Span {
     transaction_type: string;
     transaction_name: string;
     result?: string;
     sampled: boolean;
 }
-/**
- * Log entry
- */
 export interface LogEntry {
     timestamp: Date;
     level: string;
@@ -94,9 +61,6 @@ export interface LogEntry {
     service_name: string;
     environment?: string;
 }
-/**
- * Error data
- */
 export interface ErrorData {
     timestamp: Date;
     message: string;

@@ -5,14 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ApiClient = void 0;
 const axios_1 = __importDefault(require("axios"));
-/**
- * API client for sending data to DevSkin backend
- */
 class ApiClient {
-    client;
-    apiKey;
-    serviceName;
-    debug;
     constructor(serverUrl, apiKey, serviceName, debug = false) {
         this.apiKey = apiKey;
         this.serviceName = serviceName;
@@ -26,9 +19,6 @@ class ApiClient {
             },
         });
     }
-    /**
-     * Send spans to the backend
-     */
     async sendSpans(spans) {
         if (spans.length === 0)
             return;
@@ -45,9 +35,6 @@ class ApiClient {
             console.error('[DevSkin Agent] Failed to send spans:', error.message);
         }
     }
-    /**
-     * Send transactions to the backend
-     */
     async sendTransactions(transactions) {
         if (transactions.length === 0)
             return;
@@ -64,9 +51,6 @@ class ApiClient {
             console.error('[DevSkin Agent] Failed to send transactions:', error.message);
         }
     }
-    /**
-     * Send logs to the backend
-     */
     async sendLogs(logs) {
         if (logs.length === 0)
             return;
@@ -83,9 +67,6 @@ class ApiClient {
             console.error('[DevSkin Agent] Failed to send logs:', error.message);
         }
     }
-    /**
-     * Send error data to the backend
-     */
     async sendErrors(errors) {
         if (errors.length === 0)
             return;
@@ -102,9 +83,6 @@ class ApiClient {
             console.error('[DevSkin Agent] Failed to send errors:', error.message);
         }
     }
-    /**
-     * Send service metadata (for service discovery)
-     */
     async sendServiceMetadata(metadata) {
         try {
             if (this.debug) {

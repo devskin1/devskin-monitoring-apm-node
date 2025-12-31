@@ -1,9 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SpanStatus = exports.SpanKind = void 0;
-/**
- * Span kind
- */
 var SpanKind;
 (function (SpanKind) {
     SpanKind["SERVER"] = "server";
@@ -12,9 +9,6 @@ var SpanKind;
     SpanKind["PRODUCER"] = "producer";
     SpanKind["CONSUMER"] = "consumer";
 })(SpanKind || (exports.SpanKind = SpanKind = {}));
-/**
- * Span status
- */
 var SpanStatus;
 (function (SpanStatus) {
     SpanStatus["OK"] = "ok";
