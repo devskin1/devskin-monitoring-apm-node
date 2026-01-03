@@ -8,6 +8,9 @@ export interface AgentConfig {
   /** API key for authentication */
   apiKey: string;
 
+  /** Application ID (required for backend authentication) */
+  applicationId: string;
+
   /** Service name */
   serviceName: string;
 
@@ -28,6 +31,9 @@ export interface AgentConfig {
 
   /** Enable Express instrumentation */
   instrumentExpress?: boolean;
+
+  /** Enable Database instrumentation (MySQL, PostgreSQL, etc.) */
+  instrumentDatabase?: boolean;
 
   /** Batch size for sending data */
   batchSize?: number;

@@ -3,8 +3,9 @@ export declare class ApiClient {
     private client;
     private apiKey;
     private serviceName;
+    private applicationId?;
     private debug;
-    constructor(serverUrl: string, apiKey: string, serviceName: string, debug?: boolean);
+    constructor(serverUrl: string, apiKey: string, serviceName: string, applicationId?: string, debug?: boolean);
     sendSpans(spans: Span[]): Promise<void>;
     sendTransactions(transactions: Transaction[]): Promise<void>;
     sendLogs(logs: LogEntry[]): Promise<void>;

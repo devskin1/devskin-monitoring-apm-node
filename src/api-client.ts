@@ -8,20 +8,28 @@ export class ApiClient {
   private client: AxiosInstance;
   private apiKey: string;
   private serviceName: string;
+  private applicationId?: string;
   private debug: boolean;
 
-  constructor(serverUrl: string, apiKey: string, serviceName: string, debug = false) {
+  constructor(serverUrl: string, apiKey: string, serviceName: string, applicationId?: string, debug = false) {
     this.apiKey = apiKey;
     this.serviceName = serviceName;
+    this.applicationId = applicationId;
     this.debug = debug;
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-DevSkin-API-Key': apiKey,
+    };
+
+    if (applicationId) {
+      headers['X-DevSkin-Application-Id'] = applicationId;
+    }
 
     this.client = axios.create({
       baseURL: serverUrl,
       timeout: 30000,
-      headers: {
-        'Content-Type': 'application/json',
-        'X-DevSkin-API-Key': apiKey,
-      },
+      headers,
     });
   }
 

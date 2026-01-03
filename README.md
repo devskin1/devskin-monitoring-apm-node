@@ -18,6 +18,7 @@ const { init, startAgent } = require('@devskin/agent');
 const agent = init({
   serverUrl: 'https://api-monitoring.devskin.com',
   apiKey: 'your-api-key-here',
+  applicationId: 'your-application-id',  // 🔑 REQUIRED: Links traces to your application
   serviceName: 'my-api-service',
   serviceVersion: '1.0.0',
   environment: 'production',
@@ -36,6 +37,7 @@ const { init, startAgent, expressMiddleware, expressErrorHandler } = require('@d
 const agent = init({
   serverUrl: 'https://api-monitoring.devskin.com',
   apiKey: 'your-api-key',
+  applicationId: 'your-application-id',  // 🔑 REQUIRED
   serviceName: 'my-express-app',
 });
 
@@ -99,6 +101,7 @@ async function processOrder(orderId) {
 |--------|------|---------|-------------|
 | `serverUrl` | string | *required* | DevSkin backend URL |
 | `apiKey` | string | *required* | API key for authentication |
+| `applicationId` | string | *required* | 🔑 **Application ID** - Links traces to your application |
 | `serviceName` | string | *required* | Name of your service |
 | `serviceVersion` | string | undefined | Version of your service |
 | `environment` | string | undefined | Environment (production, staging, etc) |
@@ -136,6 +139,7 @@ You can also configure the agent using environment variables:
 ```bash
 DEVSKIN_SERVER_URL=https://api-monitoring.devskin.com
 DEVSKIN_API_KEY=your-api-key
+DEVSKIN_APPLICATION_ID=your-application-id
 DEVSKIN_SERVICE_NAME=my-service
 DEVSKIN_ENVIRONMENT=production
 DEVSKIN_SAMPLE_RATE=1.0
@@ -145,6 +149,7 @@ DEVSKIN_SAMPLE_RATE=1.0
 const agent = init({
   serverUrl: process.env.DEVSKIN_SERVER_URL,
   apiKey: process.env.DEVSKIN_API_KEY,
+  applicationId: process.env.DEVSKIN_APPLICATION_ID,  // 🔑 REQUIRED
   serviceName: process.env.DEVSKIN_SERVICE_NAME,
   environment: process.env.DEVSKIN_ENVIRONMENT,
   sampleRate: parseFloat(process.env.DEVSKIN_SAMPLE_RATE || '1.0'),

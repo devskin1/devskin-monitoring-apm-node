@@ -8,6 +8,7 @@
  * const agent = init({
  *   serverUrl: 'https://api-monitoring.devskin.com',
  *   apiKey: 'your-api-key',
+ *   applicationId: 'your-application-id',
  *   serviceName: 'my-service',
  *   serviceVersion: '1.0.0',
  *   environment: 'production',
@@ -25,6 +26,8 @@ export * from './api-client';
 export * from './utils/context';
 export * from './utils/id-generator';
 export { expressMiddleware, expressErrorHandler } from './instrumentation/express';
+export { instrumentMysql } from './instrumentation/mysql';
+export { instrumentPostgres } from './instrumentation/postgres';
 
 // Re-export commonly used functions
 export { init, getAgent, startAgent, stopAgent } from './agent';

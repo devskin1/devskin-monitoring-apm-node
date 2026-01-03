@@ -1,0 +1,182 @@
+import { Agent } from '../agent';
+import { SpanBuilder } from '../span';
+import { SpanKind, SpanStatus } from '../types';
+
+/**
+ * Instrument PostgreSQL (pg) driver for database monitoring
+ */
+export function instrumentPostgres(agent: Agent): void {
+  try {
+    let pg: any;
+    try {
+      pg = require('pg');
+    } catch {
+      // pg not installed
+      return;
+    }
+
+    const agentConfig = agent.getConfig();
+
+    // Patch Client.prototype.query
+    const originalQuery = pg.Client.prototype.query;
+    pg.Client.prototype.query = function (queryConfig: any, values: any, callback: any) {
+      if (!agent.shouldSample()) {
+        return originalQuery.call(this, queryConfig, values, callback);
+      }
+
+      // Handle different call signatures
+      let actualSql: string;
+      let actualValues: any;
+      let actualCallback: any;
+
+      if (typeof queryConfig === 'string') {
+        actualSql = queryConfig;
+        actualValues = values;
+        actualCallback = callback;
+      } else if (typeof queryConfig === 'object') {
+        actualSql = queryConfig.text || queryConfig.query;
+        actualValues = queryConfig.values;
+        actualCallback = values; // callback is second param when queryConfig is object
+      } else {
+        return originalQuery.call(this, queryConfig, values, callback);
+      }
+
+      if (typeof actualValues === 'function') {
+        actualCallback = actualValues;
+        actualValues = undefined;
+      }
+
+      // Extract connection info
+      const connectionParams = this.connectionParameters;
+      const dbName = connectionParams?.database || 'unknown';
+      const host = connectionParams?.host || 'localhost';
+      const port = connectionParams?.port || 5432;
+      const user = connectionParams?.user;
+
+      // Create span for the query
+      const span = new SpanBuilder(
+        `pg.query`,
+        SpanKind.CLIENT,
+        agentConfig.serviceName!,
+        agentConfig.serviceVersion,
+        agentConfig.environment,
+        agent
+      );
+
+      // Extract query type
+      const queryType = extractQueryType(actualSql);
+
+      // Set database attributes following OpenTelemetry semantic conventions
+      span.setAttributes({
+        'db.system': 'postgresql',
+        'db.name': dbName,
+        'db.statement': normalizeQuery(actualSql),
+        'db.operation': queryType,
+        'db.user': user,
+        'net.peer.name': host,
+        'net.peer.port': port,
+        'db.connection_string': `postgresql://${host}:${port}/${dbName}`,
+      });
+
+      span.setAttribute('span.kind', 'client');
+
+      const startTime = Date.now();
+
+      // Wrap callback to capture result/error
+      if (actualCallback) {
+        const wrappedCallback = (err: any, result: any) => {
+          if (err) {
+            span.setStatus(SpanStatus.ERROR, err.message);
+            span.setAttribute('error', true);
+            span.setAttribute('error.message', err.message);
+            span.setAttribute('error.type', err.code || 'Error');
+          } else {
+            span.setStatus(SpanStatus.OK);
+            // Add result metadata
+            if (result && result.rowCount !== undefined) {
+              span.setAttribute('db.rows_affected', result.rowCount);
+            }
+          }
+
+          span.end();
+          actualCallback(err, result);
+        };
+
+        // Build query queryConfig object
+        const newQueryConfig: any =
+          typeof queryConfig === 'object'
+            ? { ...queryConfig, callback: wrappedCallback }
+            : { text: actualSql, values: actualValues, callback: wrappedCallback };
+
+        return originalQuery.call(this, newQueryConfig);
+      } else {
+        // Promise-based query
+        const queryPromise = originalQuery.call(this, queryConfig, values);
+
+        return queryPromise
+          .then((result: any) => {
+            span.setStatus(SpanStatus.OK);
+            if (result && result.rowCount !== undefined) {
+              span.setAttribute('db.rows_affected', result.rowCount);
+            }
+            span.end();
+            return result;
+          })
+          .catch((err: any) => {
+            span.setStatus(SpanStatus.ERROR, err.message);
+            span.setAttribute('error', true);
+            span.setAttribute('error.message', err.message);
+            span.setAttribute('error.type', err.code || 'Error');
+            span.end();
+            throw err;
+          });
+      }
+    };
+
+    if (agentConfig.debug) {
+      console.log('[DevSkin Agent] PostgreSQL instrumentation enabled');
+    }
+  } catch (error: any) {
+    if (agent.getConfig().debug) {
+      console.error('[DevSkin Agent] Failed to instrument PostgreSQL:', error.message);
+    }
+  }
+}
+
+/**
+ * Extract query type from SQL statement
+ */
+function extractQueryType(sql: string): string {
+  if (typeof sql !== 'string') return 'unknown';
+
+  const normalized = sql.trim().toUpperCase();
+
+  if (normalized.startsWith('SELECT')) return 'SELECT';
+  if (normalized.startsWith('INSERT')) return 'INSERT';
+  if (normalized.startsWith('UPDATE')) return 'UPDATE';
+  if (normalized.startsWith('DELETE')) return 'DELETE';
+  if (normalized.startsWith('CREATE')) return 'CREATE';
+  if (normalized.startsWith('DROP')) return 'DROP';
+  if (normalized.startsWith('ALTER')) return 'ALTER';
+  if (normalized.startsWith('TRUNCATE')) return 'TRUNCATE';
+  if (normalized.startsWith('BEGIN')) return 'BEGIN';
+  if (normalized.startsWith('COMMIT')) return 'COMMIT';
+  if (normalized.startsWith('ROLLBACK')) return 'ROLLBACK';
+
+  return 'unknown';
+}
+
+/**
+ * Normalize query for better grouping
+ */
+function normalizeQuery(sql: string): string {
+  if (typeof sql !== 'string') return String(sql);
+
+  // Limit length to avoid huge spans
+  let normalized = sql.substring(0, 10000);
+
+  // Remove extra whitespace
+  normalized = normalized.replace(/\s+/g, ' ').trim();
+
+  return normalized;
+}

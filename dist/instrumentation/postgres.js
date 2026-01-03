@@ -1,0 +1,148 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.instrumentPostgres = instrumentPostgres;
+const span_1 = require("../span");
+const types_1 = require("../types");
+function instrumentPostgres(agent) {
+    try {
+        let pg;
+        try {
+            pg = require('pg');
+        }
+        catch {
+            return;
+        }
+        const agentConfig = agent.getConfig();
+        const originalQuery = pg.Client.prototype.query;
+        pg.Client.prototype.query = function (queryConfig, values, callback) {
+            if (!agent.shouldSample()) {
+                return originalQuery.call(this, queryConfig, values, callback);
+            }
+            let actualSql;
+            let actualValues;
+            let actualCallback;
+            if (typeof queryConfig === 'string') {
+                actualSql = queryConfig;
+                actualValues = values;
+                actualCallback = callback;
+            }
+            else if (typeof queryConfig === 'object') {
+                actualSql = queryConfig.text || queryConfig.query;
+                actualValues = queryConfig.values;
+                actualCallback = values;
+            }
+            else {
+                return originalQuery.call(this, queryConfig, values, callback);
+            }
+            if (typeof actualValues === 'function') {
+                actualCallback = actualValues;
+                actualValues = undefined;
+            }
+            const connectionParams = this.connectionParameters;
+            const dbName = connectionParams?.database || 'unknown';
+            const host = connectionParams?.host || 'localhost';
+            const port = connectionParams?.port || 5432;
+            const user = connectionParams?.user;
+            const span = new span_1.SpanBuilder(`pg.query`, types_1.SpanKind.CLIENT, agentConfig.serviceName, agentConfig.serviceVersion, agentConfig.environment, agent);
+            const queryType = extractQueryType(actualSql);
+            span.setAttributes({
+                'db.system': 'postgresql',
+                'db.name': dbName,
+                'db.statement': normalizeQuery(actualSql),
+                'db.operation': queryType,
+                'db.user': user,
+                'net.peer.name': host,
+                'net.peer.port': port,
+                'db.connection_string': `postgresql://${host}:${port}/${dbName}`,
+            });
+            span.setAttribute('span.kind', 'client');
+            const startTime = Date.now();
+            if (actualCallback) {
+                const wrappedCallback = (err, result) => {
+                    if (err) {
+                        span.setStatus(types_1.SpanStatus.ERROR, err.message);
+                        span.setAttribute('error', true);
+                        span.setAttribute('error.message', err.message);
+                        span.setAttribute('error.type', err.code || 'Error');
+                    }
+                    else {
+                        span.setStatus(types_1.SpanStatus.OK);
+                        if (result && result.rowCount !== undefined) {
+                            span.setAttribute('db.rows_affected', result.rowCount);
+                        }
+                    }
+                    span.end();
+                    actualCallback(err, result);
+                };
+                const newQueryConfig = typeof queryConfig === 'object'
+                    ? { ...queryConfig, callback: wrappedCallback }
+                    : { text: actualSql, values: actualValues, callback: wrappedCallback };
+                return originalQuery.call(this, newQueryConfig);
+            }
+            else {
+                const queryPromise = originalQuery.call(this, queryConfig, values);
+                return queryPromise
+                    .then((result) => {
+                    span.setStatus(types_1.SpanStatus.OK);
+                    if (result && result.rowCount !== undefined) {
+                        span.setAttribute('db.rows_affected', result.rowCount);
+                    }
+                    span.end();
+                    return result;
+                })
+                    .catch((err) => {
+                    span.setStatus(types_1.SpanStatus.ERROR, err.message);
+                    span.setAttribute('error', true);
+                    span.setAttribute('error.message', err.message);
+                    span.setAttribute('error.type', err.code || 'Error');
+                    span.end();
+                    throw err;
+                });
+            }
+        };
+        if (agentConfig.debug) {
+            console.log('[DevSkin Agent] PostgreSQL instrumentation enabled');
+        }
+    }
+    catch (error) {
+        if (agent.getConfig().debug) {
+            console.error('[DevSkin Agent] Failed to instrument PostgreSQL:', error.message);
+        }
+    }
+}
+function extractQueryType(sql) {
+    if (typeof sql !== 'string')
+        return 'unknown';
+    const normalized = sql.trim().toUpperCase();
+    if (normalized.startsWith('SELECT'))
+        return 'SELECT';
+    if (normalized.startsWith('INSERT'))
+        return 'INSERT';
+    if (normalized.startsWith('UPDATE'))
+        return 'UPDATE';
+    if (normalized.startsWith('DELETE'))
+        return 'DELETE';
+    if (normalized.startsWith('CREATE'))
+        return 'CREATE';
+    if (normalized.startsWith('DROP'))
+        return 'DROP';
+    if (normalized.startsWith('ALTER'))
+        return 'ALTER';
+    if (normalized.startsWith('TRUNCATE'))
+        return 'TRUNCATE';
+    if (normalized.startsWith('BEGIN'))
+        return 'BEGIN';
+    if (normalized.startsWith('COMMIT'))
+        return 'COMMIT';
+    if (normalized.startsWith('ROLLBACK'))
+        return 'ROLLBACK';
+    return 'unknown';
+}
+function normalizeQuery(sql) {
+    if (typeof sql !== 'string')
+        return String(sql);
+    let normalized = sql.substring(0, 10000);
+    normalized = normalized.replace(/\s+/g, ' ').trim();
+    return normalized;
+}
+//# sourceMappingURL=postgres.js.map

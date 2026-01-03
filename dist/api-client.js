@@ -6,17 +6,22 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ApiClient = void 0;
 const axios_1 = __importDefault(require("axios"));
 class ApiClient {
-    constructor(serverUrl, apiKey, serviceName, debug = false) {
+    constructor(serverUrl, apiKey, serviceName, applicationId, debug = false) {
         this.apiKey = apiKey;
         this.serviceName = serviceName;
+        this.applicationId = applicationId;
         this.debug = debug;
+        const headers = {
+            'Content-Type': 'application/json',
+            'X-DevSkin-API-Key': apiKey,
+        };
+        if (applicationId) {
+            headers['X-DevSkin-Application-Id'] = applicationId;
+        }
         this.client = axios_1.default.create({
             baseURL: serverUrl,
             timeout: 30000,
-            headers: {
-                'Content-Type': 'application/json',
-                'X-DevSkin-API-Key': apiKey,
-            },
+            headers,
         });
     }
     async sendSpans(spans) {

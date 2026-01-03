@@ -12,6 +12,7 @@ export declare class Agent {
     start(): Promise<void>;
     stop(): Promise<void>;
     private initHttpInstrumentation;
+    private initDatabaseInstrumentation;
     private sendServiceMetadata;
     reportSpan(span: Span): void;
     reportTransaction(transaction: Transaction): void;

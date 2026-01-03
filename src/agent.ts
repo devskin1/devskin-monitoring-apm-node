@@ -22,6 +22,7 @@ export class Agent {
       sampleRate: 1.0,
       instrumentHttp: true,
       instrumentExpress: true,
+      instrumentDatabase: true,
       batchSize: 100,
       flushInterval: 10000, // 10 seconds
       debug: false,
@@ -41,6 +42,7 @@ export class Agent {
       this.config.serverUrl,
       this.config.apiKey,
       this.config.serviceName,
+      this.config.applicationId,
       this.config.debug
     );
   }
@@ -69,6 +71,10 @@ export class Agent {
     // Initialize instrumentation
     if (this.config.instrumentHttp) {
       await this.initHttpInstrumentation();
+    }
+
+    if (this.config.instrumentDatabase) {
+      await this.initDatabaseInstrumentation();
     }
 
     if (this.config.debug) {
@@ -108,6 +114,34 @@ export class Agent {
       instrumentHttp(this);
     } catch (error: any) {
       console.error('[DevSkin Agent] Failed to initialize HTTP instrumentation:', error.message);
+    }
+  }
+
+  /**
+   * Initialize Database instrumentation
+   */
+  private async initDatabaseInstrumentation(): Promise<void> {
+    try {
+      // SQL Databases
+      const { instrumentMysql } = await import('./instrumentation/mysql');
+      instrumentMysql(this);
+
+      const { instrumentPostgres } = await import('./instrumentation/postgres');
+      instrumentPostgres(this);
+
+      // NoSQL Databases
+      const { instrumentMongoDB } = await import('./instrumentation/mongodb');
+      instrumentMongoDB(this);
+
+      const { instrumentRedis } = await import('./instrumentation/redis');
+      instrumentRedis(this);
+
+      const { instrumentElasticsearch } = await import('./instrumentation/elasticsearch');
+      instrumentElasticsearch(this);
+    } catch (error: any) {
+      if (this.config.debug) {
+        console.error('[DevSkin Agent] Failed to initialize Database instrumentation:', error.message);
+      }
     }
   }
 

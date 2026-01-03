@@ -1,6 +1,7 @@
 export interface AgentConfig {
     serverUrl: string;
     apiKey: string;
+    applicationId?: string;
     serviceName: string;
     serviceVersion?: string;
     environment?: string;
@@ -8,6 +9,7 @@ export interface AgentConfig {
     sampleRate?: number;
     instrumentHttp?: boolean;
     instrumentExpress?: boolean;
+    instrumentDatabase?: boolean;
     batchSize?: number;
     flushInterval?: number;
     debug?: boolean;

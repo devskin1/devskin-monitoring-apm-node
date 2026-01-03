@@ -52,6 +52,7 @@ class Agent {
             sampleRate: 1.0,
             instrumentHttp: true,
             instrumentExpress: true,
+            instrumentDatabase: true,
             batchSize: 100,
             flushInterval: 10000,
             debug: false,
@@ -64,7 +65,7 @@ class Agent {
         if (!this.config.serverUrl || !this.config.apiKey || !this.config.serviceName) {
             throw new Error('[DevSkin Agent] serverUrl, apiKey, and serviceName are required');
         }
-        this.apiClient = new api_client_1.ApiClient(this.config.serverUrl, this.config.apiKey, this.config.serviceName, this.config.debug);
+        this.apiClient = new api_client_1.ApiClient(this.config.serverUrl, this.config.apiKey, this.config.serviceName, this.config.applicationId, this.config.debug);
     }
     async start() {
         if (!this.config.enabled)
@@ -81,6 +82,9 @@ class Agent {
         await this.sendServiceMetadata();
         if (this.config.instrumentHttp) {
             await this.initHttpInstrumentation();
+        }
+        if (this.config.instrumentDatabase) {
+            await this.initDatabaseInstrumentation();
         }
         if (this.config.debug) {
             console.log('[DevSkin Agent] Agent started successfully');
@@ -108,6 +112,25 @@ class Agent {
         }
         catch (error) {
             console.error('[DevSkin Agent] Failed to initialize HTTP instrumentation:', error.message);
+        }
+    }
+    async initDatabaseInstrumentation() {
+        try {
+            const { instrumentMysql } = await Promise.resolve().then(() => __importStar(require('./instrumentation/mysql')));
+            instrumentMysql(this);
+            const { instrumentPostgres } = await Promise.resolve().then(() => __importStar(require('./instrumentation/postgres')));
+            instrumentPostgres(this);
+            const { instrumentMongoDB } = await Promise.resolve().then(() => __importStar(require('./instrumentation/mongodb')));
+            instrumentMongoDB(this);
+            const { instrumentRedis } = await Promise.resolve().then(() => __importStar(require('./instrumentation/redis')));
+            instrumentRedis(this);
+            const { instrumentElasticsearch } = await Promise.resolve().then(() => __importStar(require('./instrumentation/elasticsearch')));
+            instrumentElasticsearch(this);
+        }
+        catch (error) {
+            if (this.config.debug) {
+                console.error('[DevSkin Agent] Failed to initialize Database instrumentation:', error.message);
+            }
         }
     }
     async sendServiceMetadata() {
