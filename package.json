@@ -1,6 +1,6 @@
 {
   "name": "@devskin/agent",
-  "version": "1.0.0",
+  "version": "1.0.4",
   "description": "DevSkin Monitor Agent - JavaScript/Node.js Instrumentation SDK",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -17,6 +17,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
+    "@devskin/agent": "^1.0.2",
     "axios": "^1.6.5",
     "uuid": "^9.0.1"
   },

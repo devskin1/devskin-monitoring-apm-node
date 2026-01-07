@@ -14,7 +14,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Context = exports.TransactionBuilder = exports.SpanBuilder = exports.stopAgent = exports.startAgent = exports.getAgent = exports.init = exports.instrumentPostgres = exports.instrumentMysql = exports.expressErrorHandler = exports.expressMiddleware = void 0;
+exports.Context = exports.TransactionBuilder = exports.SpanBuilder = exports.stopAgent = exports.startAgent = exports.getAgent = exports.init = exports.instrumentPrisma = exports.instrumentPostgres = exports.instrumentMysql = exports.expressErrorHandler = exports.expressMiddleware = void 0;
 __exportStar(require("./types"), exports);
 __exportStar(require("./agent"), exports);
 __exportStar(require("./span"), exports);
@@ -28,6 +28,8 @@ var mysql_1 = require("./instrumentation/mysql");
 Object.defineProperty(exports, "instrumentMysql", { enumerable: true, get: function () { return mysql_1.instrumentMysql; } });
 var postgres_1 = require("./instrumentation/postgres");
 Object.defineProperty(exports, "instrumentPostgres", { enumerable: true, get: function () { return postgres_1.instrumentPostgres; } });
+var prisma_1 = require("./instrumentation/prisma");
+Object.defineProperty(exports, "instrumentPrisma", { enumerable: true, get: function () { return prisma_1.instrumentPrisma; } });
 var agent_1 = require("./agent");
 Object.defineProperty(exports, "init", { enumerable: true, get: function () { return agent_1.init; } });
 Object.defineProperty(exports, "getAgent", { enumerable: true, get: function () { return agent_1.getAgent; } });

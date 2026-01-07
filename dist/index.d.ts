@@ -7,6 +7,7 @@ export * from './utils/id-generator';
 export { expressMiddleware, expressErrorHandler } from './instrumentation/express';
 export { instrumentMysql } from './instrumentation/mysql';
 export { instrumentPostgres } from './instrumentation/postgres';
+export { instrumentPrisma } from './instrumentation/prisma';
 export { init, getAgent, startAgent, stopAgent } from './agent';
 export { SpanBuilder, TransactionBuilder } from './span';
 export { Context } from './utils/context';

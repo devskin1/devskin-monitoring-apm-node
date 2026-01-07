@@ -7,28 +7,68 @@ import { SpanKind, SpanStatus } from '../types';
  */
 export function instrumentMysql(agent: Agent): void {
   try {
-    // Try to require mysql2
-    let mysql2: any;
+    // Hook into Node's require system to intercept mysql/mysql2 loads
+    const Module = require('module');
+    const originalRequire = Module.prototype.require;
+
+    Module.prototype.require = function (id: string) {
+      const module = originalRequire.apply(this, arguments);
+
+      // Instrument mysql2 (base module)
+      if (id === 'mysql2' && module.Connection && !module.__devskin_instrumented) {
+        instrumentMysql2(agent, module);
+        module.__devskin_instrumented = true;
+      }
+
+      // Instrument mysql2/promise (used by TypeORM) - instrument base mysql2
+      if (id === 'mysql2/promise') {
+        const mysql2Base = require('mysql2');
+        if (mysql2Base.Connection && !mysql2Base.__devskin_instrumented) {
+          instrumentMysql2(agent, mysql2Base);
+          mysql2Base.__devskin_instrumented = true;
+        }
+      }
+
+      // Instrument mysql when it's loaded
+      if (id === 'mysql' && module.Connection && !module.__devskin_instrumented) {
+        instrumentMysqlLegacy(agent, module);
+        module.__devskin_instrumented = true;
+      }
+
+      return module;
+    };
+
+    // Also try to instrument if already loaded
     try {
-      mysql2 = require('mysql2');
-    } catch {
-      // mysql2 not installed
+      const mysql2 = require('mysql2');
+      if (mysql2 && mysql2.Connection && !mysql2.__devskin_instrumented) {
+        instrumentMysql2(agent, mysql2);
+        mysql2.__devskin_instrumented = true;
+      }
+    } catch (e) {
+      // mysql2 not yet loaded
     }
 
-    if (mysql2) {
-      instrumentMysql2(agent, mysql2);
-    }
-
-    // Try to require mysql
-    let mysql: any;
+    // Also try mysql2/promise (used by TypeORM)
     try {
-      mysql = require('mysql');
-    } catch {
-      // mysql not installed
+      const mysql2Promise = require('mysql2/promise');
+      const mysql2Base = require('mysql2');
+      if (mysql2Base && mysql2Base.Connection && !mysql2Base.__devskin_instrumented) {
+        instrumentMysql2(agent, mysql2Base);
+        mysql2Base.__devskin_instrumented = true;
+      }
+    } catch (e) {
+      // mysql2/promise not yet loaded
     }
 
-    if (mysql) {
-      instrumentMysqlLegacy(agent, mysql);
+    try {
+      const mysql = require('mysql');
+      if (mysql && mysql.Connection && !mysql.__devskin_instrumented) {
+        instrumentMysqlLegacy(agent, mysql);
+        mysql.__devskin_instrumented = true;
+      }
+    } catch {
+      // mysql not yet loaded
     }
   } catch (error: any) {
     if (agent.getConfig().debug) {
@@ -43,11 +83,15 @@ export function instrumentMysql(agent: Agent): void {
 function instrumentMysql2(agent: Agent, mysql2: any): void {
   const config = agent.getConfig();
 
+  // Save original methods BEFORE patching
+  const originalConnectionQuery = mysql2.Connection.prototype.query;
+  const originalPoolQuery = mysql2.Pool ? mysql2.Pool.prototype.query : null;
+  const originalPoolConnectionQuery = mysql2.PoolConnection ? mysql2.PoolConnection.prototype.query : null;
+
   // Patch Connection.prototype.query
-  const originalQuery = mysql2.Connection.prototype.query;
   mysql2.Connection.prototype.query = function (sql: any, values: any, callback: any) {
     if (!agent.shouldSample()) {
-      return originalQuery.call(this, sql, values, callback);
+      return originalConnectionQuery.call(this, sql, values, callback);
     }
 
     // Handle different call signatures
@@ -131,10 +175,10 @@ function instrumentMysql2(agent: Agent, mysql2: any): void {
 
     // Call original query with wrapped callback
     if (actualCallback) {
-      return originalQuery.call(this, actualSql, actualValues, wrappedCallback);
+      return originalConnectionQuery.call(this, actualSql, actualValues, wrappedCallback);
     } else {
       // Promise-based query
-      const query = originalQuery.call(this, actualSql, actualValues);
+      const query = originalConnectionQuery.call(this, actualSql, actualValues);
 
       // Wrap promise
       return query
@@ -162,6 +206,116 @@ function instrumentMysql2(agent: Agent, mysql2: any): void {
         });
     }
   };
+
+  // CRITICAL: Also patch Pool.query for TypeORM support
+  // TypeORM uses Pool.query() directly, not Connection instances
+  if (mysql2.Pool && mysql2.Pool.prototype.query && originalPoolQuery) {
+    const originalPoolQueryMethod = originalPoolQuery;
+    mysql2.Pool.prototype.query = function (sql: any, values: any, callback: any) {
+      // Pool.query internally gets a connection from the pool and calls connection.query()
+      // Since we already instrumented Connection.prototype.query, just call the original
+      // Pool.query and it will use an instrumented connection
+      return originalPoolQueryMethod.call(this, sql, values, callback);
+    };
+  }
+
+  // CRITICAL: PoolConnection has its own query() method - instrument it with full logic
+  if (mysql2.PoolConnection && mysql2.PoolConnection.prototype.query && originalPoolConnectionQuery) {
+    mysql2.PoolConnection.prototype.query = function (sql: any, values: any, callback: any) {
+      if (!agent.shouldSample()) {
+        return originalPoolConnectionQuery.call(this, sql, values, callback);
+      }
+
+      let actualSql = sql;
+      let actualValues = values;
+      let actualCallback = callback;
+      if (typeof sql === 'object') {
+        actualSql = sql.sql;
+        actualValues = sql.values;
+      }
+      if (typeof values === 'function') {
+        actualCallback = values;
+        actualValues = undefined;
+      }
+      const connectionConfig = (this as any).config;
+      const dbName = connectionConfig?.database || 'unknown';
+      const host = connectionConfig?.host || 'localhost';
+      const port = connectionConfig?.port || 3306;
+      const user = connectionConfig?.user;
+      const span = new SpanBuilder(
+        `mysql.query`,
+        SpanKind.CLIENT,
+        config.serviceName!,
+        config.serviceVersion,
+        config.environment,
+        agent
+      );
+      const queryType = extractQueryType(actualSql);
+      span.setAttributes({
+        'db.system': 'mysql',
+        'db.name': dbName,
+        'db.statement': normalizeQuery(actualSql),
+        'db.operation': queryType,
+        'db.user': user,
+        'net.peer.name': host,
+        'net.peer.port': port,
+        'db.connection_string': `mysql://${host}:${port}/${dbName}`,
+      });
+      span.setAttribute('span.kind', 'client');
+      const startTime = Date.now();
+      const wrappedCallback = (err: any, results: any, fields: any) => {
+        if (err) {
+          span.setStatus(SpanStatus.ERROR, err.message);
+          span.setAttribute('error', true);
+          span.setAttribute('error.message', err.message);
+          span.setAttribute('error.type', err.code || 'Error');
+        }
+        else {
+          span.setStatus(SpanStatus.OK);
+          if (results) {
+            if (Array.isArray(results)) {
+              span.setAttribute('db.rows_affected', results.length);
+            }
+            else if (results.affectedRows !== undefined) {
+              span.setAttribute('db.rows_affected', results.affectedRows);
+            }
+          }
+        }
+        span.end();
+        if (actualCallback) {
+          actualCallback(err, results, fields);
+        }
+      };
+      if (actualCallback) {
+        return originalPoolConnectionQuery.call(this, actualSql, actualValues, wrappedCallback);
+      }
+      else {
+        const query = originalPoolConnectionQuery.call(this, actualSql, actualValues);
+        return query
+          .then((results: any) => {
+          span.setStatus(SpanStatus.OK);
+          if (results && results[0]) {
+            if (Array.isArray(results[0])) {
+              span.setAttribute('db.rows_affected', results[0].length);
+            }
+            else if (results[0].affectedRows !== undefined) {
+              span.setAttribute('db.rows_affected', results[0].affectedRows);
+            }
+          }
+          span.end();
+          return results;
+        })
+          .catch((err: any) => {
+          span.setStatus(SpanStatus.ERROR, err.message);
+          span.setAttribute('error', true);
+          span.setAttribute('error.message', err.message);
+          span.setAttribute('error.type', err.code || 'Error');
+          span.end();
+          throw err;
+        });
+      }
+    };
+  }
 
   if (config.debug) {
     console.log('[DevSkin Agent] MySQL2 instrumentation enabled');

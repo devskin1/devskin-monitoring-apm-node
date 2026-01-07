@@ -122,22 +122,30 @@ export class Agent {
    */
   private async initDatabaseInstrumentation(): Promise<void> {
     try {
-      // SQL Databases
-      const { instrumentMysql } = await import('./instrumentation/mysql');
+      // SQL Databases - use require() instead of import() to ensure synchronous loading
+      const { instrumentMysql } = require('./instrumentation/mysql');
       instrumentMysql(this);
 
-      const { instrumentPostgres } = await import('./instrumentation/postgres');
+      const { instrumentPostgres } = require('./instrumentation/postgres');
       instrumentPostgres(this);
 
+      // ORM Instrumentation
+      const { instrumentPrisma } = require('./instrumentation/prisma');
+      instrumentPrisma(this);
+
       // NoSQL Databases
-      const { instrumentMongoDB } = await import('./instrumentation/mongodb');
+      const { instrumentMongoDB } = require('./instrumentation/mongodb');
       instrumentMongoDB(this);
 
-      const { instrumentRedis } = await import('./instrumentation/redis');
+      const { instrumentRedis } = require('./instrumentation/redis');
       instrumentRedis(this);
 
-      const { instrumentElasticsearch } = await import('./instrumentation/elasticsearch');
+      const { instrumentElasticsearch } = require('./instrumentation/elasticsearch');
       instrumentElasticsearch(this);
+
+      if (this.config.debug) {
+        console.log('[DevSkin Agent] Database instrumentation initialized');
+      }
     } catch (error: any) {
       if (this.config.debug) {
         console.error('[DevSkin Agent] Failed to initialize Database instrumentation:', error.message);

@@ -116,16 +116,21 @@ class Agent {
     }
     async initDatabaseInstrumentation() {
         try {
-            const { instrumentMysql } = await Promise.resolve().then(() => __importStar(require('./instrumentation/mysql')));
+            const { instrumentMysql } = require('./instrumentation/mysql');
             instrumentMysql(this);
-            const { instrumentPostgres } = await Promise.resolve().then(() => __importStar(require('./instrumentation/postgres')));
+            const { instrumentPostgres } = require('./instrumentation/postgres');
             instrumentPostgres(this);
-            const { instrumentMongoDB } = await Promise.resolve().then(() => __importStar(require('./instrumentation/mongodb')));
+            const { instrumentPrisma } = require('./instrumentation/prisma');
+            instrumentPrisma(this);
+            const { instrumentMongoDB } = require('./instrumentation/mongodb');
             instrumentMongoDB(this);
-            const { instrumentRedis } = await Promise.resolve().then(() => __importStar(require('./instrumentation/redis')));
+            const { instrumentRedis } = require('./instrumentation/redis');
             instrumentRedis(this);
-            const { instrumentElasticsearch } = await Promise.resolve().then(() => __importStar(require('./instrumentation/elasticsearch')));
+            const { instrumentElasticsearch } = require('./instrumentation/elasticsearch');
             instrumentElasticsearch(this);
+            if (this.config.debug) {
+                console.log('[DevSkin Agent] Database instrumentation initialized');
+            }
         }
         catch (error) {
             if (this.config.debug) {
